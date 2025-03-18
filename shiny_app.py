@@ -2,8 +2,8 @@ from shiny import App, ui, render, reactive
 import io
 import pandas as pd
 import numpy as np
-from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
 import seaborn as sns 
 
 ui.input_slider("n", "N", 0, 100, 20)
