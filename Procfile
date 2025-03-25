@@ -1,1 +1,1 @@
-web: python shiny_app.py
+web: shiny run --host=0.0.0.0 --port=$PORT shiny_app:app

@@ -273,6 +273,6 @@ def server(input, output, session):
 
 app = App(app_ui, server)
 
-if __name__ == "__main__":
-    port = int(os.environ.get("PORT", 8000))  # Default to 8000 locally
-    run_app(app, port=port, host="0.0.0.0")
+# if __name__ == "__main__":
+#     port = int(os.environ.get("PORT", 8000))  # Default to 8000 locally
+#     run_app(app, port=port, host="0.0.0.0")
