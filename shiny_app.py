@@ -73,7 +73,7 @@ app_ui = ui.page_fluid(
     ),
     ui.div(
         {"class": "header"},
-        ui.h1("US Census Demographics Dashboard (2009-2023) Based On Acs5 Survey", class_="text-center"),
+        ui.h1("US Census Demographics Dashboard (2009-2023) Based On acs5 Survey", class_="text-center"),
         ui.p("Explore population demographics across US states over time", class_="text-center text-muted")
     ),
     ui.row(
@@ -124,7 +124,7 @@ app_ui = ui.page_fluid(
                 ),
                 ui.div(
                     {"class": "chart-container-table"},
-                    ui.h3("Detailed Demographics Data"),
+                    ui.h3("Detailed Demographic Data"),
                     ui.output_data_frame("table")
                 )
             )
@@ -199,6 +199,16 @@ def server(input, output, session):
             ax.set_ylabel('Population')
             ax.grid(True, alpha=0.9)
             
+
+            #
+            state_data['Smoothed'] = state_data[POPULATION_COL].rolling(window=2, center=True).mean()
+            ax.plot(state_data['YEAR'], state_data['Smoothed'], 
+            linestyle='--', linewidth=2, color='blue', label='Smoothed Trend')
+            ax.legend()
+
+            
+
+
            
             return fig
     
@@ -232,6 +242,8 @@ def server(input, output, session):
             ax.set_ylabel('Population')
             plt.setp(ax.get_xticklabels(), rotation=10, ha='right')
             ax.grid(True, alpha=0.3)
+
+            fig.text(0.99,0.01, 'Data Source: acs5', ha='right', va='bottom', fontsize=10, color='#999999')
             
             
             return fig
