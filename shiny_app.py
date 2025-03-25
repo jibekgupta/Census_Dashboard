@@ -1,10 +1,11 @@
-from shiny import App, ui, render, reactive
+from shiny import App, ui, render, reactive, run_app
 import io
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 import seaborn as sns 
+import os
 
 ui.input_slider("n", "N", 0, 100, 20)
 
@@ -273,4 +274,5 @@ def server(input, output, session):
 app = App(app_ui, server)
 
 if __name__ == "__main__":
-    app.run()
+    port = int(os.environ.get("PORT", 8000))  # Default to 8000 locally
+    run_app(app, port=port, host="0.0.0.0")
