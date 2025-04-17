@@ -3,3 +3,4 @@ __pycache__/
 key.env
 .env
 .DS_Store
+.Rproj.user
