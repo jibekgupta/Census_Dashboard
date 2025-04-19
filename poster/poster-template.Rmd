@@ -1,13 +1,13 @@
 ---
-title: "Examining Racial Disparities in Capital Punishment"
+title: "Parts of a Patchwork Nation: Designing an Open Source Tool to Investigate Demographic Shifts in Urban and Rural Communities"
 author: 
-  - name: Zoe Williams
+  - name: Jibek Gupta
     affil: 1
   - name:  Nathan Alexander, PhD
     affil: 2, 3
 affiliation:
   - num: 1
-    address: Department of Political Science, College of Arts and Sciences
+    address: Department of Electrical Engineering and Computer Science, College of Engineering and Architecture
   - num: 2
     address: Department of Curriculum and Instruction, School of Education
   - num: 3
@@ -54,356 +54,187 @@ here::i_am("poster-template.Rmd")
 pagedown::chrome_print("poster-template.Rmd")
 ```
 
-# Abstract
-
-We explore disparities in U.S. capital punishment. Our hypotheses align with studies indicating that Black Americans are incarcerated at higher rates than other groups. We examine measures of difference in administrative data on life in prison and the death penalty.
-
 # Overview
 
-@bohm2016deathquest outlines theories and practices related to capital punishment in the United States. Other scholars, such as @alexander2021new, analyze prisons and the historical. Fewer studies look at capital punishment. As more researchers consider capital punishment, base studies need to be conducted.
+We report on the development of an interactive, open source dashboard to explore research on a *Patchwork Nation* (Gimpel & Schuknecht, 2003). A system to support internal user needs is considered to prioritize knowledge of "parallel changes" in the Patchwork Nation model. System was balanced to provide efficient access to changes in individual demographic trends in U.S. states from 2009 to 2023. Using the U.S. Census Bureau's American Community Survey (ACS) estimates, we evaluated population distribution, growth rates, and diversity trends in large urban centers and rural areas with a focus on racial and ethnic categorizations. Preliminary findings reveal that urban areas exhibit greater changes in racial categorization compared to rural areas.
 
-Collapsed categories in capital punishment data guided the analysis:
+This work is part of a larger mapping project focused on identifying the multiple dimensions that may constitute what we mean by communities and neighborhoods. Race and ethnicity play a major role in how we define geographical areas. As a result, some efficient tools are needed to support quick inquiries related to how a state or more local geographic regions change over time. 
 
-- **Executed**: The legal process by which a person sentenced to death is put to death as a form of punishment.
+```{r, include=F, warning=F, message=F}
+# Install packages as needed
+# install.packages(c("tidycensus", "tidyverse", "mapview", "mapgl", "quarto"))
 
-- **Exonerated**: A legal declaration that a person previously convicted of a crime is officially cleared of all charges.
-
-- **Resentenced to Life or Less**: A judicial action where a defendant's original sentence—often a death sentence or a lengthy prison term—is reduced to a lesser sentence, such as life imprisonment without the possibility of parole or life with the possibility of parole.
-
-- **Sentence Commuted**: The reduction or alteration of a defendant's original sentence by a executive authority (such as a governor or president), which shortens the length of imprisonment or changes the nature of the punishment. 
-
-- **Died (Other)**: Death by means other than execution, such as dying on death row.
-
-# Research Questions
-
-1.  What are the sentencing outcome distributions: Executed, Exonerated, Resentenced, Sentence Commuted, and Died?
-
-2.  Are defendants proportionally represented across sentencing outcomes, or do disparities exist indicating that either racial group (Black-White) is overrepresented or underrepresented?
-
-# Methodology
-
-## Data
-
-- Capital Punishment Data (historical)
-
-- U.S. Census Data (2023 ACS 5-year Estimates)
-
-We cleaned and integrated data values across both databases.
-
-## Disparity ratio
-
-$$
-\frac{\text{Capital Sentencing Proportion}}{\text{Population Proportion}} = \frac{\dfrac{n}{\sum n}}{\dfrac{\text{estimate}}{\sum \text{estimate}}}
-$$
-
-# Findings
-
-```{r, include=F, warning=F, messages=F}
-sentences <- read.csv("../data/sentences.csv")
-str(sentences)
-```
-
-```{r, include=F, warning=F, messages=F}
-sentences2 <- sentences %>%
-  mutate(Outcome_Category = case_when(
-      Outcome.of.Sentence %in% c("Executed",
-                                 "Executed for a Different Crime", 
-                                 "Executed by a Different State", 
-                                 "Executed for a Different Crime Pending Retrial or Resentencing"
-                                 ) ~ "Executed",
-      
-      Outcome.of.Sentence %in% c("Resentenced to Death", 
-                                 "Resentenced to Life or Less", 
-                                 "Resentenced to Time Served"
-                                 ) ~ "Resentenced to Life or Less",
-      
-      Outcome.of.Sentence %in% c("Exonerated",
-                                 "Grant of Relief (Retrial/Resentencing Pending)", 
-                                 "Grant of Relief (Never Retried)", 
-                                 "Grant of Relief (Subject to Appeal)",
-                                 "Conviction Voided", 
-                                 "Conviction Voided, Convicted and Sentenced to Life or Less in Another Jurisdiction",
-                                 "Not Guilty by Reason of Insanity", 
-                                 "Acquitted, Convicted and Sentenced to Death in Another Jurisdiction"
-                                 ) ~ "Exonerated",
-      
-      Outcome.of.Sentence %in% c("Died on Death Row",
-                                 "Died Pending Retrial or Resentencing") ~ "Died (Other)", 
-      
-      Outcome.of.Sentence %in% c("Active Death Sentence")  ~ "Active Death Sentence",
-      
-      Outcome.of.Sentence %in% c("Sentence Commuted (Administrative)", 
-                                 "Sentence Commuted", 
-                                 "Sentence was Commuted to life without parole", 
-                                 "Sentence was Commuted to time served"
-                                 ) ~ "Sentence Commuted",
-      
-      TRUE ~ NA_character_  # For outcomes that don't fit or need review
-    )
-  ) %>% 
-  relocate(defendant, 
-           sentence, 
-           Year, 
-           Gender, 
-           Races, 
-           Outcome.of.Sentence, 
-           Outcome_Category, 
-           Current.Case.Status, 
-           Region,
-           State.Abbreviation) %>% 
-  mutate(Multi.sentence.identifier = as.numeric(Multi.sentence.identifier))
-
-# drop all races except for white and black
-sentences3 <- sentences2 %>%
-  as.tibble() %>% 
-  filter(Races %in% c("White", "Black")) %>% 
-  rename(outcome_original = Outcome.of.Sentence) %>% 
-  rename(outcome_category = Outcome_Category) %>% 
-  rename(race = Races) %>% 
-  rename(year = Year) %>% 
-  rename(gender = Gender) %>% 
-  rename(state = State.Abbreviation) %>% 
-  rename(region = Region) %>% 
-  rename(name = Name) %>% 
-  mutate(multiple_sentences = !is.na(Multi.sentence.identifier))
-
-# count rows per defendant
-sentences3 %>%
-  count(defendant) %>%
-  filter(n > 1) %>%
-  arrange(desc(n))
-
-sentences3_clean <- sentences3 %>% 
-  # Group by defendant
-  group_by(defendant) %>%
-  # Count original rows and keep most recent record
-  mutate(count_of_records = n()) %>%
-  arrange(desc(year)) %>%
-  slice(1) %>%
-  # Ungroup
-  ungroup()
-
-# count rows per defendant
-sentences3_clean %>%
-  count(defendant) %>%
-  filter(n > 1) %>%
-  arrange(desc(n))
-
-# create two data sets by cases
-df <- sentences3_clean %>% 
-  relocate(defendant, year, gender, race, outcome_category, outcome_original, region, state, multiple_sentences, count_of_records, name)
-single <- df %>% 
-  filter(count_of_records == 1)
-multiple <- df %>% 
-  filter(count_of_records > 1)
-df
-single
-multiple
-```
-
-```{r, include=F, warning=F, messages=F}
-glimpse(df) %>% 
-  select(Name = "name",
-         Year = "year",
-         multiple_sentences,
-         count_of_records,
-         Category = "outcome_category") %>% 
-  as.tibble()
-```
-
-```{r, include=F, warning=F, messages=F}
+# Load necessary libraries
 library(tidycensus)
-# gather population estimates from Census data
-# Filter for Black/White defendants and calculate counts
-sentencing_race <- df %>%
-  filter(race %in% c("Black", "White")) %>%  # Keep only Black/White
-  count(race) %>%
-  mutate(race = tolower(race))  # Match ACS race labels ("black", "white")
-
-# Get race_pop including ALL racial groups (for accurate denominator)
-race_pop_all <- get_acs(
-  geography = "us",
-  variables = c(
-    white = "B02001_002",
-    black = "B02001_003",
-    asian = "B02001_005",
-    hispanic = "B03003_003"  # Add other groups as needed
-  ),
-  year = 2023,
-  survey = "acs5"
-) %>%
-  select(race = variable, us_pop = estimate)
-
-# Calculate disparity using total US population denominator
-disparity_df <- sentencing_race %>%
-  left_join(
-    race_pop_all %>% filter(race %in% c("black", "white")),
-    by = "race"
-  ) %>%
-  mutate(
-    us_pct = us_pop / sum(race_pop_all$us_pop),  # Key change: total pop denominator
-    sentenced_pct = n / sum(n),
-    disparity_ratio = sentenced_pct / us_pct
-  )
-
-# Result includes only Black/White but uses full population denominator
-
-# view the df
-disparity_df
-# columns: race | n | us_pop | moe | us_pct | sentenced_pct | disparity_ratio
-```
-
-```{r, include=F, warning=F, messages=F}
+library(dplyr)
 library(ggplot2)
-library(kableExtra)
-library(knitr)
-
-ggplot(disparity_df, aes(x = race, y = disparity_ratio)) +
-  geom_col(fill = "steelblue", width = 0.6) +
-  geom_hline(yintercept = 1, linetype = "dashed", color = "red", linewidth = 1.2) +
-  labs(
-    title = "Black-White Capital Sentencing Disparity Ratios",
-    subtitle = "Ratio of sentencing proportion to population proportion",
-    x = "Race",
-    y = "Disparity Ratio"
-  ) +
-  scale_x_discrete(labels = c("black" = "Black", "white" = "White")) +
-  theme_minimal(base_size = 18) +  # Larger base font
-  theme(
-    # Center titles
-    plot.title = element_text(hjust = 0.5, size = 24, face = "bold"),
-    plot.subtitle = element_text(hjust = 0.5, size = 20),
-    
-    # Center plot in available space
-    plot.margin = unit(c(2, 2, 2, 2), "cm"),  # Equal margins
-    
-    # Enhance visibility
-    axis.title = element_text(size = 20),
-    axis.text = element_text(size = 18),
-    panel.grid.major.x = element_blank()  # Cleaner look
-  ) -> disparity_plot
-
-ggsave(
-  filename = "img/disparity_plot.png",
-  plot = disparity_plot,
-  width = 16,        # width in inches
-  height = 12,       # height in inches
-  units = "in",
-  dpi = 300,         # high resolution
-  bg = "white"       # ensures white background instead of transparent
-)
-
+library(sf)
+library(viridis)
 ```
 
-![](img/disparity_plot.png){width=90%}
+## Single Indicator Models and Issues of Time
 
-```{r, echo=F, warning=F, messages=F}
-# install.packages(c("kableExtra", "magick", "webshot2"))
+**Issue**: Communities change over time. Single indicator models provide only a "snapshot" of a region during a period of time. **Response 1**: Improve efficient access to single indicators.
 
-
-disparity_df %>%
-  kable(
-    format = "html",
-    align = c("l", "c", "c", "c", "c", "c"),
-    col.names = c("Race", "Count", "US Pop", "US %", "Sentenced %", "Disparity Ratio"),
-    digits = 2
-  ) %>%
-  kable_styling(
-    bootstrap_options = c("striped", "hover", "condensed"),
-    full_width = TRUE,
-    font_size = 14
-  ) %>%
-  row_spec(0, bold = TRUE, color = "white", background = "steelblue") %>%
-  column_spec(6, bold = TRUE)
-
-
-
-```
-
-```{r, include=F, warning=F, messages=F}
-
-# Remove NA outcomes
-df_clean <- df %>% 
-  filter(!is.na(outcome_category))
-
-# Verify removal
-# table(df_clean$outcome_category, useNA = "always")
-
-# Define colors manually
-race_colors <- c(
-  "White" = "steelblue",
-  "Black" = "#E51937",  # Red from your poster palette
-  "Asian" = "#5F6062",  # Gray from your palette (optional)
-  "Hispanic" = "#8C8C8C"  # Light gray (optional)
+```{r, include=F, warning=F, message=F}
+dc_income <- get_acs(
+  geography = "tract",
+  variables = "B19013_001",
+  state = "DC",
+  year = 2023
 )
 
-df_clean %>%
-  count(race, outcome_category) %>%
-  ggplot(aes(x = outcome_category, y = n, fill = race)) +
-  geom_col(position = "dodge", width = 0.7) +
-  scale_fill_manual(values = race_colors) +  # Apply custom colors
+dc_income
+```
+
+```{r, include=F, warning=F, message=F}
+dc_white <- get_acs(
+  geography = "tract",
+  variables = "B02001_002E",
+  state = "DC",
+  year = 2023
+)
+
+dc_white
+```
+
+```{r, message=F, warning=F, include=F}
+dc_income_sf <- get_acs(
+  geography = "tract",
+  variables = "B19013_001",
+  state = "DC",
+  year = 2023,
+  geometry = T
+)
+```
+
+```{r, message=F, warning=F, include=F}
+dc_white_sf <- get_acs(
+  geography = "tract",
+  variables = "B02001_002E",
+  state = "DC",
+  year = 2023,
+  geometry = T
+)
+```
+
+```{r, include=F, echo=F, message=F, warning=F}
+ggplot(dc_income_sf) +
+  geom_sf(aes(fill = estimate), color = "white", size = 0.1) +
+  scale_fill_viridis(option = "magma", name = "Median Household Income") +
   labs(
-    title = "Capital Case Outcomes by Race",
-    x = "Outcome Category",
-    y = "Count",
-    fill = "Race"
+    title = "Median Household Income in Washington, DC",
+    subtitle = "By Census Tract (2023)",
+    caption = "Data: American Community Survey 5-Year Estimates"
   ) +
   theme_minimal() +
   theme(
-    axis.text.x = element_text(angle = 45, hjust = 1),
-    legend.position = "top",
-    plot.title = element_text(color = "#003A63")  # Navy title
-  )
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_blank(),
+    legend.position = "right"
+  ) -> dc_income_population
 
-ggsave("img/outcome_plot_branded.png",
-       width = 12,
-       height = 8,
-       dpi = 300,
-       bg = "white")
-
-
+ggsave(
+  filename = "img/dc_income_population.png",
+  plot = dc_income_population,
+  width = 8,         # width in inches
+  height = 6,        # height in inches
+  dpi = 300          # dots per inch (high resolution)
+)
 ```
 
-![](img/outcome_plot_branded.png){width=90%}
-```{r, include=F, warning=F, messages=F}
+```{r, include=F, echo=F, message=F, warning=F}
+ggplot(dc_white_sf) +
+  geom_sf(aes(fill = estimate), color = "white", size = 0.1) +
+  scale_fill_viridis(option = "magma", name = "Population of White Individuals") +
+  labs(
+    title = "White Population in Washington, DC",
+    subtitle = "By Census Tract (2023)",
+    caption = "Data: American Community Survey 5-Year Estimates"
+  ) +
+  theme_minimal() +
+  theme(
+    plot.title = element_text(face = "bold", size = 16),
+    plot.subtitle = element_text(size = 12),
+    axis.title = element_blank(),
+    legend.position = "right"
+  ) -> dc_white_sf_info
 
+ggsave(
+  filename = "img/dc_white_population.png",
+  plot = dc_white_sf_info,
+  width = 8,         # width in inches
+  height = 6,        # height in inches
+  dpi = 300          # dots per inch (high resolution)
+)
 ```
 
-```{r, include=F, warning=F, messages=F}
+![](img/dc_income_population.png){width="49%"} ![](img/dc_white_population.png){width="49%"}
 
-```
+**Issue**: Communities change over time. Single indicator models provide only a "snapshot" of a region during a period of time. **Response 2**: Generate system that frames change over time.
 
-These are the findings.
+![Population change output](img/line.jpg){width=90%}
 
-Here is finding 1.
+# Theoretical Framework
 
-Here is finding 2.
+This work draws from an intersectional approach to diversity that emphasizes temporal and geographic nuance. Inspired by critical demographic frameworks, we disaggregate racial/ethnic trends over time, challenging static categorizations and embracing the fluidity of identity. This intersectional lens (Crenshaw, 1989) highlights not just population counts but also evolving racial compositions, especially within historically underrepresented rural regions.
 
-```{r, include=F, warning=F, messages=F}
+- Open source software engineering
 
-```
+- Data acquisition and framing
 
-```{r, include=F, warning=F, messages=F}
+- Patchwork Nation in spatial analysis
 
-```
+# Methods
 
+A built from scratch tool for internal use. Python used to collect census 5-year estimate data via the U.S. Census Bureau API. We query population and race categories as pilot variables across all states from 2009 to 2023. The data was fetched, validated with cross-referencing, and aggregated using supports from, for example, pandas. The dashboard was developed using Shiny for Python to allow real-time user interaction, filtering, and data exploration. Data cleaning and preparation scripts ensured standardized column naming, numeric conversions, and year-wise formatting.
 
-Here is finding 3.
+## Phase 1: Research and Development
 
-Here is finding 4.
+Population (B01003_001E); Census racial-ethnic categories (B02001)
 
-# Discussion
+![](img/function.jpg){width=49%} ![](img/table.jpg){width=49%}
 
-This is the discussion section [@alexander2021new].
+# Outputs
 
-This is the further discussion.
+The root system enables users to model Census variables:
+
+- Population trends from 2009 to 2023
+- Variable categories on demand
+-- Pilot variable: Racial/ethnic group composition per year
+- State share of national population
+- Downloadable CSVs for extended analysis
+
+A dashboard preview can be found at:
+
+https://census-dashboard-3102a5a2e14b.herokuapp.com/
+
+# Next Steps
+
+- Phase 2: Intersecting **demographic vectors**
+
+- Generate additional **geographic selections**
+
+- Develop **user input system** to prioritize categories
+
+- Prompt **interactive mapping graphics**
 
 # Conclusion
 
-This is some concluding text.
+This dashboard serves as an internal model for open-source platform development. The model supports users in preparing internally-relevant data for visualizing and interrogating long-term changes across the U.S. Modeling the use of internal tools improve local practices among an organizing group. The tools can expand variable selection (e.g., housing, education) and integrate regional urban/rural distinctions that support more focused analysis on a system.
 
 # Acknowledgements
 
-These are the acknowledgements. This work was supporting by funding from the Alfred P. Sloan Foundation (Grant 2023-21062).
+This work was supported by funding from the Alfred P. Sloan Foundation (Grant 2023-21062). This educational product is part of research and development in the Quantitative Histories Workshop.
 
 # References
+
+Crenshaw, K. (1989). Demarginalizing the intersection of race and sex: A black feminist critique. *University of Chicago Legal Forum, 1989*(1), 139–167.
+
+Gimpel, J. G., & Schuknecht, J. E. (2003). *Patchwork Nation: Sectionalism and Political Change in American Politics*. University of Michigan Press. https://doi.org/10.3998/mpub.17820
+
+Posit Software. (2023). *Shiny for Python*. https://shiny.posit.co/py/
+
+U.S Census Bureau. (2009-2023). American Community Survey (ACS) 5-Year Estimates. 
+https://www.census.gov/programs-surveys/acs
